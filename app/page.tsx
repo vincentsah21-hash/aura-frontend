@@ -3,80 +3,78 @@
 import { useState } from "react";
 
 export default function Home() {
-
-  // ✅ FIX: production-safe API config
+  // API CONFIG (Render backend)
   const API =
     process.env.NEXT_PUBLIC_API_URL ||
     "https://aura-backend-ftvs.onrender.com";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [token, setToken] = useState<string>("");
+  const [token, setToken] = useState("");
 
   const [cv, setCv] = useState("");
   const [job, setJob] = useState("");
   const [result, setResult] = useState<any>(null);
   const [file, setFile] = useState<File | null>(null);
 
+  const [loading, setLoading] = useState(false);
+
   // ---------------- LOGIN ----------------
   const login = async () => {
+    setLoading(true);
     try {
       const res = await fetch(`${API}/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
 
-      if (res.ok && data.access_token) {
-        setToken(data.access_token);
-        localStorage.setItem("token", data.access_token);
-        alert("Login successful");
-      } else {
-        alert(data.detail || "Login failed");
-      }
-    } catch (err) {
-      alert("Network error during login");
+      if (!res.ok) throw new Error(data.detail || "Login failed");
+
+      setToken(data.access_token);
+      localStorage.setItem("token", data.access_token);
+      alert("Login successful");
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   // ---------------- REGISTER ----------------
   const register = async () => {
+    setLoading(true);
     try {
       const res = await fetch(`${API}/register`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
 
-      if (res.ok) {
-        alert("User created. Now login.");
-      } else {
-        alert(data.detail || "Registration failed");
-      }
-    } catch (err) {
-      alert("Network error during registration");
+      if (!res.ok) throw new Error(data.detail || "Registration failed");
+
+      alert("User created successfully. Now login.");
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   // ---------------- UPLOAD CV ----------------
   const uploadCV = async () => {
-    if (!file) {
-      alert("Please select a CV file");
-      return;
-    }
+    if (!file) return alert("Please select a CV file");
 
-    const formData = new FormData();
-    formData.append("file", file);
+    setLoading(true);
 
     try {
+      const formData = new FormData();
+      formData.append("file", file);
+
       const res = await fetch(`${API}/upload-cv`, {
         method: "POST",
         body: formData,
@@ -84,23 +82,22 @@ export default function Home() {
 
       const data = await res.json();
 
-      if (data.cv_text) {
-        setCv(data.cv_text);
-        alert("CV uploaded successfully");
-      } else {
-        alert("Upload failed");
-      }
-    } catch (err) {
-      alert("Upload error");
+      if (!res.ok) throw new Error("Upload failed");
+
+      setCv(data.cv_text);
+      alert("CV uploaded successfully");
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ---------------- ANALYZE CV ----------------
+  // ---------------- ANALYZE ----------------
   const analyzeCV = async () => {
-    if (!token) {
-      alert("Please login first");
-      return;
-    }
+    if (!token) return alert("Please login first");
+
+    setLoading(true);
 
     try {
       const res = await fetch(`${API}/analyze`, {
@@ -116,30 +113,30 @@ export default function Home() {
       });
 
       const data = await res.json();
+
+      if (!res.ok) throw new Error("Analysis failed");
+
       setResult(data);
-    } catch (err) {
-      alert("Analysis failed");
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   // ---------------- HISTORY ----------------
   const getHistory = async () => {
-    if (!token) {
-      alert("Login first");
-      return;
-    }
+    if (!token) return alert("Login first");
 
     try {
       const res = await fetch(`${API}/history`, {
-        headers: {
-          token: token,
-        },
+        headers: { token },
       });
 
       const data = await res.json();
       console.log("History:", data);
-      alert("History printed in console");
-    } catch (err) {
+      alert("History loaded in console");
+    } catch {
       alert("Failed to load history");
     }
   };
@@ -153,54 +150,52 @@ export default function Home() {
 
         <input
           placeholder="Email"
-          className="block mt-2 p-2 text-black"
+          className="block mt-2 p-2 text-black w-full"
           onChange={(e) => setEmail(e.target.value)}
         />
 
         <input
           placeholder="Password"
           type="password"
-          className="block mt-2 p-2 text-black"
+          className="block mt-2 p-2 text-black w-full"
           onChange={(e) => setPassword(e.target.value)}
         />
 
         <div className="flex gap-2 mt-3">
           <button
             onClick={login}
-            className="bg-green-500 px-4 py-2 rounded cursor-pointer"
+            disabled={loading}
+            className="bg-green-500 px-4 py-2 rounded"
           >
             Login
           </button>
 
           <button
             onClick={register}
-            className="bg-blue-500 px-4 py-2 rounded cursor-pointer"
+            disabled={loading}
+            className="bg-blue-500 px-4 py-2 rounded"
           >
             Register
           </button>
         </div>
 
-        {token && (
-          <p className="text-green-400 mt-2">Logged in ✔</p>
-        )}
+        {token && <p className="text-green-400 mt-2">Logged in ✔</p>}
       </div>
 
-      {/* CV UPLOAD */}
+      {/* UPLOAD */}
       <div className="bg-white/10 p-4 rounded-xl mb-4">
-        <input
-          type="file"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
-        />
+        <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
 
         <button
           onClick={uploadCV}
+          disabled={loading}
           className="bg-purple-500 px-4 py-2 ml-2 rounded"
         >
           Upload CV
         </button>
       </div>
 
-      {/* CV TEXT */}
+      {/* INPUTS */}
       <textarea
         className="w-full h-32 p-2 text-black"
         placeholder="CV text"
@@ -208,22 +203,21 @@ export default function Home() {
         onChange={(e) => setCv(e.target.value)}
       />
 
-      {/* JOB DESCRIPTION */}
       <textarea
         className="w-full h-32 p-2 text-black mt-2"
         placeholder="Job description"
         onChange={(e) => setJob(e.target.value)}
       />
 
-      {/* ANALYZE BUTTON */}
+      {/* ACTIONS */}
       <button
         onClick={analyzeCV}
+        disabled={loading}
         className="bg-red-500 px-4 py-2 mt-2 rounded"
       >
         Analyze CV
       </button>
 
-      {/* HISTORY BUTTON */}
       <button
         onClick={getHistory}
         className="bg-yellow-500 px-4 py-2 mt-2 ml-2 rounded"
@@ -231,18 +225,13 @@ export default function Home() {
         View History
       </button>
 
-      {/* RESULTS */}
+      {/* RESULT */}
       {result && (
         <div className="mt-6 bg-white/10 p-4 rounded-xl">
           <h2 className="text-xl font-bold">AI Result</h2>
 
           <p>Match Score: {result.match_score}</p>
-
-          <p>
-            Missing Skills: {result.missing_skills?.join(", ")}
-          </p>
-
-          <p>Suggestions:</p>
+          <p>Missing Skills: {result.missing_skills?.join(", ")}</p>
 
           <ul className="list-disc ml-6">
             {result.suggestions?.map((s: string, i: number) => (
